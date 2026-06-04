@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NADARA Yaw Misalignment Challenge — Leaderboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .rank-badge { width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; }
+        .loading-spinner { border:3px solid #374151; border-top:3px solid #3b82f6; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen p-4 md:p-8">
+<div class="max-w-6xl mx-auto">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-white mb-2">NADARA Yaw Misalignment Challenge</h1>
+        <p class="text-gray-300 text-lg">Leaderboard</p>
+        <div id="lastUpdate" class="text-sm text-gray-400 mt-2"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex mb-6 border-b border-gray-600">
+        <button id="tab-rmse" onclick="showTab('rmse')"
+            class="px-6 py-3 text-white font-semibold border-b-2 border-blue-500 focus:outline-none">
+            Model Performance (RMSE)
+        </button>
+        <button id="tab-econ" onclick="showTab('econ')"
+            class="px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none hover:text-white">
+            Economic Performance
+        </button>
+    </div>
+
+    <!-- Search -->
+    <div class="mb-6 bg-gray-800 rounded-lg shadow-md p-4">
+        <input type="text" id="searchInput" placeholder="Search participant ID or tier…"
+            class="w-full px-4 py-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"/>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="flex justify-center items-center py-20">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="hidden bg-red-900 border border-red-600 text-red-200 px-4 py-3 rounded-lg mb-6">
+        <strong>Error:</strong> <span id="errorMessage"></span>
+    </div>
+
+    <!-- RMSE leaderboard -->
+    <div id="board-rmse" class="space-y-3"></div>
+
+    <!-- Economic leaderboard -->
+    <div id="board-econ" class="hidden space-y-3"></div>
+
+    <!-- Stats -->
+    <div id="stats" class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+</div>
+
+<script>
+const BASE = 'https://wedowind.github.io/NADARA-Static-Yaw-Misalignment-Submissions/';
+const RMSE_URL = BASE + 'rmse_ranking.csv';
+const ECON_URL = BASE + 'economic_ranking.csv';
+
+let rmseData = [], econData = [];
+let currentTab = 'rmse';
+
+const TIER_LABELS = { U: 'Unsupervised', C: 'Calibrated', S: 'Supervised' };
+const TIER_COLORS = {
+    U: 'bg-emerald-900 text-emerald-200',
+    C: 'bg-blue-900 text-blue-200',
+    S: 'bg-purple-900 text-purple-200',
+};
+
+function tierBadge(tier) {
+    const cls = TIER_COLORS[tier] || 'bg-gray-700 text-gray-200';
+    const label = TIER_LABELS[tier] || tier;
+    return `<span class="inline-block ${cls} px-2 py-1 rounded text-xs font-medium">${label}</span>`;
+}
+
+function fmt(v, decimals) { return isNaN(v) ? '—' : parseFloat(v).toFixed(decimals); }
+function fmtEur(v) {
+    const n = parseFloat(v);
+    if (isNaN(n)) return '—';
+    return '€' + n.toLocaleString('en-GB', {maximumFractionDigits:0});
+}
+
+function cardBg(rank) {
+    return rank <= 3
+        ? 'bg-gradient-to-r from-yellow-900/20 to-orange-900/20 border-yellow-600'
+        : 'bg-gray-800 border-gray-700';
+}
+function medal(rank) {
+    return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+}
+function medalSize(rank) {
+    return rank <= 3 ? 'text-4xl' : 'text-2xl font-bold text-gray-500';
+}
+
+function renderRmse(data) {
+    if (!data.length) return '<div class="bg-gray-800 rounded-lg p-8 text-center text-gray-400">No submissions yet.</div>';
+    return data.map((row, i) => {
+        const rank = parseInt(row.rank);
+        return `
+        <div class="fade-in ${cardBg(rank)} rounded-lg shadow-md border-2 p-5 hover:shadow-xl transition-all" style="animation-delay:${i*0.05}s">
+          <div class="flex items-center justify-between">
+            <div class="rank-badge ${medalSize(rank)}">${medal(rank)}</div>
+            <div class="flex-1 mx-6">
+              <div class="text-xl font-bold text-white">Participant ${row.participant_id}</div>
+              <div class="mt-1 flex flex-wrap gap-2">
+                ${tierBadge(row.tier)}
+                <span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">Sub #${row.sub_num}</span>
+                ${row.tier === 'C' && row.n_reference_turbines ? `<span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">${row.n_reference_turbines} ref turbines</span>` : ''}
+              </div>
+            </div>
+            <div class="flex items-center gap-8 text-right">
+              <div>
+                <div class="text-3xl font-mono font-bold ${rank <= 3 ? 'text-orange-400' : 'text-gray-300'}">${fmt(row.rmse, 4)}</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">RMSE (°)</div>
+              </div>
+              <div>
+                <div class="text-3xl font-mono font-bold text-gray-400">${fmt(row.mae, 4)}</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">MAE (°)</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function renderEcon(data) {
+    if (!data.length) return '<div class="bg-gray-800 rounded-lg p-8 text-center text-gray-400">No submissions yet.</div>';
+    return data.map((row, i) => {
+        const rank = parseInt(row.rank);
+        return `
+        <div class="fade-in ${cardBg(rank)} rounded-lg shadow-md border-2 p-5 hover:shadow-xl transition-all" style="animation-delay:${i*0.05}s">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="rank-badge ${medalSize(rank)}">${medal(rank)}</div>
+            <div class="flex-1 min-w-0 mx-4">
+              <div class="text-xl font-bold text-white">Participant ${row.participant_id}</div>
+              <div class="mt-1 flex flex-wrap gap-2">
+                ${tierBadge(row.tier)}
+                <span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">Sub #${row.sub_num}</span>
+                ${row.tier === 'C' && row.n_reference_turbines ? `<span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">${row.n_reference_turbines} ref turbines</span>` : ''}
+              </div>
+            </div>
+            <div class="flex items-center gap-6 text-right flex-wrap justify-end">
+              <div>
+                <div class="text-3xl font-mono font-bold ${rank <= 3 ? 'text-emerald-400' : 'text-gray-300'}">${fmtEur(row.net_score_eur)}</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">Net Score / yr</div>
+              </div>
+              <div>
+                <div class="text-xl font-mono font-bold text-gray-400">${fmtEur(row.per_turbine_annual_eur)}</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">Per turbine</div>
+              </div>
+              <div>
+                <div class="text-xl font-mono font-bold text-gray-400">${parseInt(row.turbines_year1).toLocaleString()}</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">Turbines yr 1</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function renderStats() {
+    const data = currentTab === 'rmse' ? rmseData : econData;
+    const participants = new Set(data.map(r => r.participant_id)).size;
+    const subs = data.length;
+
+    let extra1, extra2;
+    if (currentTab === 'rmse') {
+        extra1 = `<div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-orange-400">${data.length ? fmt(data[0].rmse, 4) : '—'}</div>
+            <div class="text-gray-300 mt-2">Best RMSE (°)</div></div>`;
+        extra2 = `<div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-purple-400">${data.length ? fmt(data[0].mae, 4) : '—'}</div>
+            <div class="text-gray-300 mt-2">Best MAE (°)</div></div>`;
+    } else {
+        extra1 = `<div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-emerald-400">${data.length ? fmtEur(data[0].net_score_eur) : '—'}</div>
+            <div class="text-gray-300 mt-2">Best Net Score</div></div>`;
+        extra2 = `<div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
+            <div class="text-3xl font-bold text-blue-400">${data.length ? parseInt(data[0].turbines_year1).toLocaleString() : '—'}</div>
+            <div class="text-gray-300 mt-2">Turbines (best)</div></div>`;
+    }
+
+    document.getElementById('stats').innerHTML = `
+        <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
+            <div class="text-4xl font-bold text-blue-400">${subs}</div>
+            <div class="text-gray-300 mt-2">Submissions</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
+            <div class="text-4xl font-bold text-green-400">${participants}</div>
+            <div class="text-gray-300 mt-2">Participants</div>
+        </div>
+        ${extra1}${extra2}`;
+}
+
+function filterData(data) {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    if (!q) return data;
+    return data.filter(r =>
+        String(r.participant_id).toLowerCase().includes(q) ||
+        String(r.tier).toLowerCase().includes(q)
+    );
+}
+
+function refresh() {
+    const rmse = filterData(rmseData);
+    const econ = filterData(econData);
+    document.getElementById('board-rmse').innerHTML = renderRmse(rmse);
+    document.getElementById('board-econ').innerHTML = renderEcon(econ);
+    renderStats();
+}
+
+function showTab(tab) {
+    currentTab = tab;
+    document.getElementById('board-rmse').classList.toggle('hidden', tab !== 'rmse');
+    document.getElementById('board-econ').classList.toggle('hidden', tab !== 'econ');
+    document.getElementById('tab-rmse').className =
+        tab === 'rmse'
+        ? 'px-6 py-3 text-white font-semibold border-b-2 border-blue-500 focus:outline-none'
+        : 'px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none hover:text-white';
+    document.getElementById('tab-econ').className =
+        tab === 'econ'
+        ? 'px-6 py-3 text-white font-semibold border-b-2 border-blue-500 focus:outline-none'
+        : 'px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none hover:text-white';
+    renderStats();
+}
+
+document.getElementById('searchInput').addEventListener('input', refresh);
+
+function loadAll() {
+    let loaded = 0;
+    function done() { if (++loaded === 2) { document.getElementById('loading').style.display='none'; refresh(); updateTimestamp(); } }
+    Papa.parse(RMSE_URL, { download:true, header:true,
+        complete(r) { rmseData = r.data.filter(row => row.rank && row.rmse); done(); },
+        error(e) { showError('Could not load RMSE ranking: ' + e.message); done(); }
+    });
+    Papa.parse(ECON_URL, { download:true, header:true,
+        complete(r) { econData = r.data.filter(row => row.rank && row.net_score_eur); done(); },
+        error(e) { showError('Could not load economic ranking: ' + e.message); done(); }
+    });
+}
+
+function updateTimestamp() {
+    document.getElementById('lastUpdate').textContent = 'Last updated: ' + new Date().toLocaleString('en-GB');
+}
+function showError(msg) {
+    document.getElementById('errorMessage').textContent = msg;
+    document.getElementById('error').classList.remove('hidden');
+}
+
+setInterval(loadAll, 5 * 60 * 1000);
+loadAll();
+</script>
+</body>
+</html>
