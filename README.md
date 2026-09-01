@@ -14,8 +14,8 @@ sidecar.
 | File | Turbines | Labels |
 |---|---|---|
 | `train.parquet` | PPP-12, PPP-13, PPP-14 | yes, where WindFit measured |
-| `validate.parquet` | PPP-17 | no — public leaderboard |
-| `test.parquet` | SSS-06 | no — final round, scored once at the deadline |
+| `validate.parquet` | PPP-17 | no, public leaderboard |
+| `test.parquet` | SSS-06 | no, final round, scored once at the deadline |
 | `context.parquet` | 11 others | no |
 
 Test SCADA is published; only its labels are withheld. Use it freely for
@@ -40,7 +40,7 @@ since the last update", not "missing". Forward fill it.
 By pull request, adding files under `Submissions/`. Format is checked immediately;
 scoring runs when a maintainer merges.
 
-**`Results_NN_TIER_x.csv`** — `NN` your participant ID, `TIER` one of `U` 
+**`Results_NN_TIER_x.csv`**  where `NN` your participant ID, `TIER` one of `U` 
 (unsupervised), `S` (supervised), or `CK` (Calibrated K reference turbines),
 `x` the submission number or `final` for the private test.
 
@@ -98,7 +98,7 @@ nothing about whether you have a model.
 For clustering, the real states are contiguous in time, so cutting the calendar
 into a few blocks scores ARI 0.53 / 0.65 with no SCADA read at all. **Do not use
 calendar adjacency between scored days.** Rows ship shuffled, but dates are kept
-because you need them to find the SCADA — so this is an honour-system rule.
+because you need them to find the SCADA. **This is an honour-system rule.**
 
 ## Things worth knowing about this data
 
