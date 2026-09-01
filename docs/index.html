@@ -158,6 +158,11 @@ const TIER_COLORS = {
 };
 
 const METRIC_LABELS = { rmse: 'RMSE (°)', mae: 'MAE (°)', cluster_ari: 'Cluster ARI' };
+// Two decimals, not four. The smallest RMSE difference the paired bootstrap can
+// call real is around 0.02, so a third decimal is noise dressed up as precision.
+// Two entries inside one band may print the same figure -- that is the point:
+// they are tied on RMSE and the cluster ARI is what separates them.
+const METRIC_DECIMALS = { rmse: 2, mae: 2, cluster_ari: 2 };
 const METRIC_COLORS = { rmse: 'text-orange-400', mae: 'text-cyan-400',
                         cluster_ari: 'text-fuchsia-400' };
 // RMSE and MAE are better when small, ARI when large
@@ -326,12 +331,12 @@ function renderBoard(rows) {
             </div>
             <div class="flex items-center gap-8 text-right">
               <div>
-                <div class="text-3xl font-mono font-bold ${rank <= 3 ? METRIC_COLORS[currentMetric] : 'text-gray-300'}">${fmt(row[currentMetric], 4)}</div>
+                <div class="text-3xl font-mono font-bold ${rank <= 3 ? METRIC_COLORS[currentMetric] : 'text-gray-300'}">${fmt(row[currentMetric], METRIC_DECIMALS[currentMetric])}</div>
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[currentMetric]}</div>
                 ${currentMetric === 'rmse' && row.gap_vs_lead ? `<div class="text-xs text-gray-500 mt-1 normal-case" title="Paired bootstrap over misalignment regimes: the RMSE margin needed to be provably better than this band's leader.">needs ${fmt(row.gap_vs_lead, 2)} to beat band lead</div>` : ''}
               </div>
               <div>
-                <div class="text-3xl font-mono font-bold text-gray-400">${fmt(row[other], 4)}</div>
+                <div class="text-3xl font-mono font-bold text-gray-400">${fmt(row[other], METRIC_DECIMALS[other])}</div>
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[other]}</div>
               </div>
             </div>
@@ -355,11 +360,11 @@ function renderStats(rows) {
             <div class="text-gray-300 mt-2">Participants</div>
         </div>
         <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold ${METRIC_COLORS[currentMetric]}">${best ? fmt(best[currentMetric], 4) : '—'}</div>
+            <div class="text-3xl font-bold ${METRIC_COLORS[currentMetric]}">${best ? fmt(best[currentMetric], METRIC_DECIMALS[currentMetric]) : '—'}</div>
             <div class="text-gray-300 mt-2">Best ${METRIC_LABELS[currentMetric]}</div>
         </div>
         <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold text-gray-400">${best ? fmt(best[other], 4) : '—'}</div>
+            <div class="text-3xl font-bold text-gray-400">${best ? fmt(best[other], METRIC_DECIMALS[other]) : '—'}</div>
             <div class="text-gray-300 mt-2">${METRIC_LABELS[other]} of leader</div>
         </div>`;
 }
