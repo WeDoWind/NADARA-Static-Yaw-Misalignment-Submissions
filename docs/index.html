@@ -49,12 +49,13 @@
 
     <!-- How to read this -->
     <div class="mb-6 bg-gray-800/60 border border-gray-700 rounded-lg p-4 text-sm text-gray-300">
-        Ranked on <span class="text-orange-400 font-semibold">RMSE</span>. Scored days are
-        heavily autocorrelated, so the board can only resolve differences larger than the
-        <span class="text-gray-400">± resolvable</span> figure on each card — entries inside
-        that margin are tied, and the
-        <span class="text-fuchsia-400 font-semibold">clustering ARI</span> tie-breaker
-        separates them. A dash means no clustering was entered.
+        Ranked on <span class="text-orange-400 font-semibold">RMSE</span>. The scored days come
+        from only a handful of misalignment regimes, so most RMSE differences are smaller than
+        the noise. A paired bootstrap over whole regimes decides which differences are real:
+        submissions it cannot separate share a <span class="text-slate-300 font-semibold">Band</span>,
+        and inside a band the <span class="text-fuchsia-400 font-semibold">clustering ARI</span>
+        sets the order — it measures whether the regimes were identified at all, which is what
+        RMSE is too noisy to judge. A dash means no clustering was entered.
     </div>
 
     <!-- Filters -->
@@ -164,6 +165,16 @@ const LOWER_IS_BETTER = { rmse: true, mae: true, cluster_ari: false };
 // the metric shown beside the active one
 const COMPANION = { rmse: 'mae', mae: 'rmse', cluster_ari: 'rmse' };
 
+// Submissions sharing a band are statistically tied on RMSE -- the scored days
+// come from too few misalignment regimes to separate them -- so within a band
+// the ordering comes from cluster_ari, not RMSE.
+function bandBadge(band) {
+    const n = parseInt(band);
+    if (!Number.isFinite(n)) return '';
+    return `<span class="inline-block bg-slate-700 text-slate-200 px-2 py-1 rounded text-xs font-medium"
+        title="Statistical band ${n}. Submissions in the same band cannot be separated on RMSE; they are ordered by cluster agreement (ARI).">Band ${n}</span>`;
+}
+
 function tierBadge(tier) {
     const family = String(tier || '').charAt(0);   // tier is U, S, or C followed by a count
     const cls = TIER_COLORS[family] || 'bg-gray-700 text-gray-200';
@@ -272,7 +283,14 @@ function visibleRows() {
         rows = [...bestByParticipant.values()];
     }
 
-    rows.sort((a, b) => compareMetric(a[currentMetric], b[currentMetric]));
+    // On the RMSE board the scorer's `rank` already encodes band -> ARI -> RMSE.
+    // Re-sorting on raw RMSE here would undo the tie-breaking inside a band, so
+    // the stored rank is used instead. Secondary boards sort on their own metric.
+    if (currentMetric === 'rmse') {
+        rows.sort((a, b) => (parseInt(a.rank) || 0) - (parseInt(b.rank) || 0));
+    } else {
+        rows.sort((a, b) => compareMetric(a[currentMetric], b[currentMetric]));
+    }
     return rows.map((r, i) => ({ ...r, displayRank: i + 1 }));
 }
 
@@ -303,13 +321,14 @@ function renderBoard(rows) {
                 ${tierBadge(row.tier)}
                 <span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">Sub #${row.submission}</span>
                 ${/^C\d+$/.test(row.tier) ? `<span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">${row.tier.slice(1)} ref turbines</span>` : ''}
+                ${bandBadge(row.band)}
               </div>
             </div>
             <div class="flex items-center gap-8 text-right">
               <div>
                 <div class="text-3xl font-mono font-bold ${rank <= 3 ? METRIC_COLORS[currentMetric] : 'text-gray-300'}">${fmt(row[currentMetric], 4)}</div>
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[currentMetric]}</div>
-                ${currentMetric !== 'cluster_ari' && row.resolvable_gap ? `<div class="text-xs text-gray-500 mt-1 normal-case">± ${fmt(row.resolvable_gap, 2)} resolvable</div>` : ''}
+                ${currentMetric === 'rmse' && row.gap_vs_lead ? `<div class="text-xs text-gray-500 mt-1 normal-case" title="Paired bootstrap over misalignment regimes: the RMSE margin needed to be provably better than this band's leader.">needs ${fmt(row.gap_vs_lead, 2)} to beat band lead</div>` : ''}
               </div>
               <div>
                 <div class="text-3xl font-mono font-bold text-gray-400">${fmt(row[other], 4)}</div>

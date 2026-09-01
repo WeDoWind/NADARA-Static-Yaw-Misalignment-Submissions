@@ -76,7 +76,8 @@ calibrating them to degrees, and physics-based approaches that detect a change i
 behaviour without pinning down its magnitude. Those are worth rewarding even when
 the absolute number is out of reach.
 
-`Submissions/Results_0_U_0.csv` is an all-zero example you can copy.
+`Submissions/Results_0_U_0.csv` and `Results_0_U_final.csv` are all-zero examples you
+can copy, one per round.
 
 Submissions are immutable once merged; submit a new number to revise.
 
@@ -85,15 +86,27 @@ Submissions are immutable once merged; submit a new number to revise.
 Ranked on **RMSE**, MAE alongside. Clustering breaks ties, scored per turbine with
 the Adjusted Rand Index.
 
-The tie-breaker is not decorative. Scored days are heavily autocorrelated. A run
-of days at one misalignment level is effectively a single observation, so the
-leaderboard resolves differences no finer than **±1.5 RMSE on validate and ±0.6 on
-test**. The scorer prints that margin with every result. Submissions inside it are
-tied, and the clustering score decides.
+The tie-breaker is not decorative. Scored days are heavily autocorrelated: a run of
+days at one misalignment level is effectively a single observation, so the effective
+sample size is the number of misalignment states, not the number of days. Most RMSE
+differences are smaller than the noise.
 
-**Baselines.** A single constant scores RMSE 3.43 on the private test, which is
-also what predicting that set's own mean would score. A result near 3.4 says
-nothing about whether you have a model.
+Which differences are real is decided by a **paired bootstrap**. Whole states are
+resampled, never individual days, and every submission is scored on the same
+resampled draw — so the luck of a draw (an easy stretch pulled twice, a hard one
+missed) lands on everyone at once and cancels when two submissions are compared.
+
+Going down the RMSE order, a submission that is not provably better than the leader
+of the band above it joins that band. Submissions sharing a **band** are statistically
+tied on RMSE, and the clustering ARI decides their order. The board reports `band`
+and `gap_vs_lead`: the RMSE margin you would need over your band's leader to be
+provably ahead of it.
+
+**Baselines.** The best single constant scores **RMSE 3.35 on the private test** and
+**4.80 on validate**, and on the test it lands in the same band as the all-zero
+example — the two are not separable. A test result near 3.4 says nothing about whether
+you have a model. Note the two rounds are not comparable: a constant is a strong
+baseline on the test turbine and a weak one on validate.
 
 For clustering, the real states are contiguous in time, so cutting the calendar
 into a few blocks scores ARI 0.53 / 0.65 with no SCADA read at all. **Do not use
@@ -116,6 +129,11 @@ because you need them to find the SCADA. **This is an honour-system rule.**
 - **The obvious method does not work out of the box.** An OpenOA-style
   power-versus-vane fit tracks a change *within* a turbine well, but ranks the
   three training turbines in the wrong order.
+- **Check your sign before you submit.** A submission with the right magnitudes and
+  the wrong sign scores worse than any constant while clustering perfectly — it is a
+  solved problem thrown away on a convention. The board reports `bias` (mean predicted
+  minus true); if yours is large and close in size to your MAE, suspect an inversion
+  rather than a bad model.
 
 ## Checking your file locally
 
