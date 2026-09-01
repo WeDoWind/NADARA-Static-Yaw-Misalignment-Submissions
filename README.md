@@ -19,16 +19,14 @@ sidecar.
 | `context.parquet` | 11 others | no |
 
 Test SCADA is published; only its labels are withheld. Use it freely for
-unsupervised or transductive work.
+unsupervised or transductive work. The evaluation of test data results will be
+done at the end of the challenge.
 
-`turbine_locations_PPP.csv` and `turbine_locations_SSS.csv` give the layout — one
-file per site, since coordinates are relative to a different origin at each. Only
-turbines whose SCADA ships are listed. `x_m` is easting, `y_m` northing; the layout
-carries a constant scale factor applied to both axes, so distances stay
-proportional and bearings between turbines are exact.
+`turbine_locations_PPP.csv` and `turbine_locations_SSS.csv` give the layout one
+file per site. `x_m` is easting, `y_m` northing.
 
 Signals: `Power`, `WindSpeed`, `WindDir`, `NacDir`, `PitchAngle`, `RotSpeed`,
-`GenSpeed`. Vane angle is not supplied — derive it as `WindDir - NacDir`, wrapped
+`GenSpeed`. Vane angle can be derived as `WindDir - NacDir`, wrapped
 to ±180°.
 
 `train.parquet` carries **every day**, labelled or not, so you can use the full two
@@ -42,9 +40,9 @@ since the last update", not "missing". Forward fill it.
 By pull request, adding files under `Submissions/`. Format is checked immediately;
 scoring runs when a maintainer merges.
 
-**`Results_NN_TIER_x.csv`** — `NN` your participant ID, `TIER` one of `U`, `S`, or
-`CK` (K reference turbines), `x` the submission number or `final` for the private
-test.
+**`Results_NN_TIER_x.csv`** — `NN` your participant ID, `TIER` one of `U` 
+(unsupervised), `S` (supervised), or `CK` (Calibrated K reference turbines),
+`x` the submission number or `final` for the private test.
 
 ```csv
 turbine_id,date,yaw_misalignment_deg,cluster
@@ -62,15 +60,16 @@ entry never carries predictions for the held-out turbine:
 Predictions are asked for every day; only days with a real label outside a
 transition window are scored, and the rest are ignored rather than penalised.
 
-**`cluster`** — optional tie-breaker, in the same file. Group the days that share a
-misalignment state; the value does not matter, only which days belong together.
+**`cluster`** is the optional tie-breaker, in the same file. Group the days that
+share a misalignment state.
+The value does not matter, only which days belong together.
 Labels are arbitrary and only have to be consistent within a turbine. We are not
-telling you how many states there are — working that out is part of it.
+telling you how many states there are: working that out is part of it.
 
 Fill the column on every row to enter, or leave it empty to skip. A partly filled
 column is rejected.
 
-If you predict the value well, clustering is trivial — just bin your own
+If you predict the value well, clustering is trivial: just bin your own
 predictions. It is kept because it is reachable by routes the primary metric is
 not: unsupervised methods that can tell a turbine's states apart without ever
 calibrating them to degrees, and physics-based approaches that detect a change in
@@ -86,8 +85,8 @@ Submissions are immutable once merged; submit a new number to revise.
 Ranked on **RMSE**, MAE alongside. Clustering breaks ties, scored per turbine with
 the Adjusted Rand Index.
 
-The tie-breaker is not decorative. Scored days are heavily autocorrelated — a run
-of days at one misalignment level is effectively a single observation — so the
+The tie-breaker is not decorative. Scored days are heavily autocorrelated. A run
+of days at one misalignment level is effectively a single observation, so the
 leaderboard resolves differences no finer than **±1.5 RMSE on validate and ±0.6 on
 test**. The scorer prints that margin with every result. Submissions inside it are
 tied, and the clustering score decides.
@@ -110,8 +109,8 @@ because you need them to find the SCADA — so this is an honour-system rule.
 - **Anemometer calibrations get changed.** This can put a step in a turbine's
   wind-speed-to-power relationship that has nothing to do with yaw. At least one
   turbine here has one.
-- **Turbines genuinely see different wind.** Complex terrain, varying hub heights;
-  persistent 10–15% offsets between turbines are real, not errors to remove.
+- **Turbines might genuinely see different wind.** Complex terrain, varying hub heights;
+  persistent 10–15% offsets between turbines might be real.
 - **Labels are smoothed.** The daily series behaves like a rolling estimate and
   drifts for about a week before each visible step. Those days are not scored.
 - **The obvious method does not work out of the box.** An OpenOA-style
