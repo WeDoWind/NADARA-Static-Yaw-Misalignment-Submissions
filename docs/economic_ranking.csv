@@ -1,2 +1,5 @@
 rank,participant_id,tier,n_reference_turbines,sub_num,net_score_eur,per_turbine_annual_eur,turbines_year1,fleet_savings_eur,measurement_cost_eur,filename
-1,0,U,0,0,0.0,0.0,2000,0.0,0.0,Results_0_U_0.csv
+1,22,U,0,0,1511690.56,755.85,2000,1511690.56,0.0,Results_22_U_0.csv
+2,27,C,1,0,1491078.94,746.03,2000,1492068.94,990.0,Results_27_C1_0.csv
+3,0,U,0,0,0.0,0.0,2000,0.0,0.0,Results_0_U_0.csv
+4,13,S,0,0,-67424.78,-133.75,60,-8024.78,59400.0,Results_13_S_0.csv
