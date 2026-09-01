@@ -2,18 +2,25 @@
 
 ## 1. Prepare your file
 
-Create a CSV with exactly two columns:
+Create a CSV with one row per turbine-day:
 
 ```
-session_id,yaw_misalignment_deg
-validate-0,1.23
-validate-1,-7.8
+turbine_id,date,yaw_misalignment_deg,cluster
+PPP_WTG17,2023-01-01,-8.1,0
+PPP_WTG17,2023-01-02,-8.0,0
 ...
 ```
 
-- **857 rows** for the validate leaderboard (session_ids from `submission_template.csv`)
-- **813 rows** for the final test (use `_final` suffix — see below)
-- All values must be finite floats
+- **731 rows** — every turbine/date pair in the template for your round:
+  `submission_template_validate.csv` for a numbered entry (PPP-17),
+  `submission_template_final.csv` for `_final` (SSS-06)
+- All values must be finite floats, within +/-90 degrees
+- Predictions are asked for every day. Only days with a real label outside a
+  transition window are scored; the rest are ignored, not penalised
+
+`cluster` is the optional tie-breaker column: group days sharing a misalignment
+state. Labels are arbitrary and only need to be consistent within a turbine. Fill
+every row to enter, or leave the column empty to skip.
 
 ## 2. Name your file
 
@@ -28,7 +35,7 @@ Results_NN_TIER_x.csv
 | `x` | Submission number, starting at 0 | `0`, `1`, `2` |
 
 For the final private-test submission use `final` instead of a number:
-`Results_42_U_final.csv`
+`Results_42_U_final.csv`.
 
 ## 3. Open a pull request
 

@@ -1,2 +1,2 @@
-rank,participant_id,tier,n_reference_turbines,sub_num,rmse,mae,filename
-1,0,U,0,0,2.485923,2.234772,Results_0_U_0.csv
+rank,participant_id,tier,submission,rmse,mae,bias,cluster_ari,resolvable_gap,n_days,filename
+1,0,U,0,4.9955,4.0232,1.3892,0.0,3.5863,76,Results_0_U_0.csv

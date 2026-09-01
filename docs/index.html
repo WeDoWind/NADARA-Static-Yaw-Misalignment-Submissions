@@ -41,6 +41,20 @@
             class="px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-t hover:text-white">
             Model Performance (MAE)
         </button>
+        <button id="tab-cluster_ari" onclick="showTab('cluster_ari')"
+            class="px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-t hover:text-white">
+            Tie-breaker (clustering ARI)
+        </button>
+    </div>
+
+    <!-- How to read this -->
+    <div class="mb-6 bg-gray-800/60 border border-gray-700 rounded-lg p-4 text-sm text-gray-300">
+        Ranked on <span class="text-orange-400 font-semibold">RMSE</span>. Scored days are
+        heavily autocorrelated, so the board can only resolve differences larger than the
+        <span class="text-gray-400">± resolvable</span> figure on each card — entries inside
+        that margin are tied, and the
+        <span class="text-fuchsia-400 font-semibold">clustering ARI</span> tie-breaker
+        separates them. A dash means no clustering was entered.
     </div>
 
     <!-- Filters -->
@@ -142,16 +156,38 @@ const TIER_COLORS = {
     S: 'bg-purple-900 text-purple-200',
 };
 
-const METRIC_LABELS = { rmse: 'RMSE (°)', mae: 'MAE (°)' };
-const METRIC_COLORS = { rmse: 'text-orange-400', mae: 'text-cyan-400' };
+const METRIC_LABELS = { rmse: 'RMSE (°)', mae: 'MAE (°)', cluster_ari: 'Cluster ARI' };
+const METRIC_COLORS = { rmse: 'text-orange-400', mae: 'text-cyan-400',
+                        cluster_ari: 'text-fuchsia-400' };
+// RMSE and MAE are better when small, ARI when large
+const LOWER_IS_BETTER = { rmse: true, mae: true, cluster_ari: false };
+// the metric shown beside the active one
+const COMPANION = { rmse: 'mae', mae: 'rmse', cluster_ari: 'rmse' };
 
 function tierBadge(tier) {
-    const cls = TIER_COLORS[tier] || 'bg-gray-700 text-gray-200';
-    const label = TIER_LABELS[tier] || tier;
+    const family = String(tier || '').charAt(0);   // tier is U, S, or C followed by a count
+    const cls = TIER_COLORS[family] || 'bg-gray-700 text-gray-200';
+    const label = TIER_LABELS[family] || tier;
     return `<span class="inline-block ${cls} px-2 py-1 rounded text-xs font-medium">${label}</span>`;
 }
 
-function fmt(v, decimals) { return isNaN(v) ? '—' : parseFloat(v).toFixed(decimals); }
+function fmt(v, decimals) {
+    return (v === '' || v === null || v === undefined || isNaN(v))
+        ? '—' : parseFloat(v).toFixed(decimals);
+}
+
+/* Rows with no value for the active metric always sort last, whichever way the
+   metric runs. Entering the tie-breaker is optional, so a blank ARI must not
+   outrank a real one. */
+function compareMetric(a, b) {
+    const x = parseFloat(a), y = parseFloat(b);
+    const xNaN = isNaN(x), yNaN = isNaN(y);
+    if (xNaN && yNaN) return 0;
+    if (xNaN) return 1;
+    if (yNaN) return -1;
+    return LOWER_IS_BETTER[currentMetric] ? x - y : y - x;
+}
+function better(candidate, incumbent) { return compareMetric(candidate, incumbent) < 0; }
 
 function cardBg(rank) {
     return rank <= 3
@@ -221,7 +257,7 @@ function visibleRows() {
     let rows = data[currentSplit].filter(r =>
         matchesFilter(r.participant_id, f.participant) &&
         matchesFilter(r.tier,           f.tier) &&
-        matchesFilter(r.sub_num,        f.sub)
+        matchesFilter(r.submission,     f.sub)
     );
 
     if (currentScope === 'best') {
@@ -229,14 +265,14 @@ function visibleRows() {
         for (const r of rows) {
             const key  = String(r.participant_id);
             const prev = bestByParticipant.get(key);
-            if (!prev || parseFloat(r[currentMetric]) < parseFloat(prev[currentMetric])) {
+            if (!prev || better(r[currentMetric], prev[currentMetric])) {
                 bestByParticipant.set(key, r);
             }
         }
         rows = [...bestByParticipant.values()];
     }
 
-    rows.sort((a, b) => parseFloat(a[currentMetric]) - parseFloat(b[currentMetric]));
+    rows.sort((a, b) => compareMetric(a[currentMetric], b[currentMetric]));
     return rows.map((r, i) => ({ ...r, displayRank: i + 1 }));
 }
 
@@ -254,7 +290,7 @@ function renderBoard(rows) {
         return '<div class="bg-gray-800 rounded-lg p-8 text-center text-gray-400">No submissions match these filters.</div>';
     }
 
-    const other = currentMetric === 'rmse' ? 'mae' : 'rmse';
+    const other = COMPANION[currentMetric];
     return rows.map((row, i) => {
         const rank = row.displayRank;
         return `
@@ -265,14 +301,15 @@ function renderBoard(rows) {
               <div class="text-xl font-bold text-white">Participant ${row.participant_id}</div>
               <div class="mt-1 flex flex-wrap gap-2">
                 ${tierBadge(row.tier)}
-                <span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">Sub #${row.sub_num}</span>
-                ${row.tier === 'C' && parseInt(row.n_reference_turbines) > 0 ? `<span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">${row.n_reference_turbines} ref turbines</span>` : ''}
+                <span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">Sub #${row.submission}</span>
+                ${/^C\d+$/.test(row.tier) ? `<span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">${row.tier.slice(1)} ref turbines</span>` : ''}
               </div>
             </div>
             <div class="flex items-center gap-8 text-right">
               <div>
                 <div class="text-3xl font-mono font-bold ${rank <= 3 ? METRIC_COLORS[currentMetric] : 'text-gray-300'}">${fmt(row[currentMetric], 4)}</div>
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[currentMetric]}</div>
+                ${currentMetric !== 'cluster_ari' && row.resolvable_gap ? `<div class="text-xs text-gray-500 mt-1 normal-case">± ${fmt(row.resolvable_gap, 2)} resolvable</div>` : ''}
               </div>
               <div>
                 <div class="text-3xl font-mono font-bold text-gray-400">${fmt(row[other], 4)}</div>
@@ -286,7 +323,7 @@ function renderBoard(rows) {
 
 function renderStats(rows) {
     const participants = new Set(rows.map(r => r.participant_id)).size;
-    const other = currentMetric === 'rmse' ? 'mae' : 'rmse';
+    const other = COMPANION[currentMetric];
     const best = rows.length ? rows[0] : null;
 
     document.getElementById('stats').innerHTML = `
@@ -328,8 +365,9 @@ const SEG_ON  = 'px-3 py-1.5 text-sm bg-blue-600 text-white focus:outline-none f
 const SEG_OFF = 'px-3 py-1.5 text-sm text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500';
 
 function paintToggles() {
-    document.getElementById('tab-rmse').className = currentMetric === 'rmse' ? TAB_ON : TAB_OFF;
-    document.getElementById('tab-mae').className  = currentMetric === 'mae'  ? TAB_ON : TAB_OFF;
+    for (const m of ['rmse', 'mae', 'cluster_ari']) {
+        document.getElementById('tab-' + m).className = currentMetric === m ? TAB_ON : TAB_OFF;
+    }
 
     document.getElementById('split-validate').className = currentSplit === 'validate' ? SEG_ON : SEG_OFF;
     document.getElementById('split-final').className    = (currentSplit === 'final' ? SEG_ON : SEG_OFF) + ' border-l border-gray-600';
@@ -370,7 +408,7 @@ function loadAll() {
         Papa.parse(SPLIT_URLS[split] + '?t=' + Date.now(), {
             download: true, header: true,
             complete(r) {
-                data[split] = r.data.filter(row => row.participant_id && row.rmse);
+                data[split] = r.data.filter(row => row.participant_id && row.rmse !== '');
                 splitLoaded[split] = true;
                 done();
             },

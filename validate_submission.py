@@ -1,128 +1,88 @@
-#!/usr/bin/env python3
-"""Structural validation for a NADARA Yaw Misalignment challenge submission.
+"""Format check for submissions. Runs on every PR; needs no labels.
 
-Runs in the PUBLIC repo's PR workflow — has NO access to ground-truth labels.
-Only checks that the submission is well-formed; actual scoring happens after
-merge, in the private evaluation repo.
-
-Submission filename format:
-  Results_NN_TIER_x.csv       (x = submission number)   → validate split
-  Results_NN_TIER_final.csv   (final submission)         → private test split
-
-TIER is one of:
-  U           unsupervised (no labelled data at deployment time)
-  CK          calibrated with K reference turbines (e.g. C5)
-  S           fully supervised (per-turbine measurement required)
-
-A valid submission:
-  - filename matches the pattern above
-  - has exactly the header:  session_id,yaw_misalignment_deg
-  - has the correct number of rows for the split (857 validate / 813 test)
-  - every session_id matches the expected prefix exactly once
-  - yaw_misalignment_deg is a finite float on every row
-
-Usage:
     python validate_submission.py Submissions/Results_42_U_0.csv
-Exit 0 = valid, 1 = invalid.
 """
 
+from __future__ import annotations
+
+import argparse
 import re
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
-SPLITS = {
-    "validate": {"prefix": "validate-", "n": 857},
-    "test":     {"prefix": "test-",     "n": 813},
-}
-
-FILENAME_RE = re.compile(r"^Results_(\d+)_(U|S|C(\d+))_(\d+|final)\.csv$")
-
-
-def split_for(suffix: str) -> str:
-    return "test" if suffix == "final" else "validate"
+RESULTS = re.compile(r"^Results_(\d+)_(U|S|C\d+)_(\d+|final)\.csv$")
+TEMPLATES = Path(__file__).parent
+REQUIRED = ["turbine_id", "date", "yaw_misalignment_deg"]
 
 
 def fail(msg: str) -> None:
-    print(f"::error::{msg}", file=sys.stderr)
+    print(f"FAIL: {msg}")
+    sys.exit(1)
 
 
-def validate(path: Path) -> list[str]:
-    errors: list[str] = []
+def check(path: Path) -> None:
+    match = RESULTS.match(path.name)
+    if match is None:
+        fail(f"{path.name} does not match Results_NN_TIER_x.csv "
+             "(TIER is U, S, or C followed by the number of reference turbines)")
 
-    m = FILENAME_RE.match(path.name)
-    if not m:
-        errors.append(
-            f"Filename '{path.name}' must match "
-            "Results_NN_(U|S|CK)_(NUM|final).csv  "
-            "(NN=participant id, TIER=U/S/C5/etc., NUM=submission number)."
-        )
-        return errors
+    # a numbered entry is scored on the public validation turbine, "final" on the
+    # held-out one -- each round has its own template, so neither carries the other's rows
+    round_name = "final" if match.group(3) == "final" else "validate"
+    template_path = TEMPLATES / f"submission_template_{round_name}.csv"
+    if not template_path.exists():
+        fail(f"missing {template_path.name} — copy it from the challenge data")
 
-    cfg = SPLITS[split_for(m.group(4))]
-    n, prefix = cfg["n"], cfg["prefix"]
+    df = pd.read_csv(path)
+    if list(df.columns[:3]) != REQUIRED:
+        fail(f"first three columns are {list(df.columns[:3])}, expected {REQUIRED}")
+    extra_cols = [c for c in df.columns[3:] if c != "cluster"]
+    if extra_cols:
+        fail(f"unexpected columns {extra_cols}; only an optional 'cluster' may follow")
 
-    try:
-        df = pd.read_csv(path, dtype={"session_id": str})
-    except Exception as e:
-        errors.append(f"Cannot parse CSV: {e}")
-        return errors
+    if df[["turbine_id", "date"]].duplicated().any():
+        fail("duplicate turbine_id/date rows")
 
-    if list(df.columns) != ["session_id", "yaw_misalignment_deg"]:
-        errors.append(
-            f"Header must be exactly 'session_id,yaw_misalignment_deg'; "
-            f"got {list(df.columns)}."
-        )
-        return errors
+    template = pd.read_csv(template_path)
+    want = set(zip(template.turbine_id, template.date.astype(str)))
+    got = set(zip(df.turbine_id, df.date.astype(str)))
+    if missing := want - got:
+        fail(f"{len(missing)} rows from the template are missing, e.g. {sorted(missing)[:3]}")
+    if extra := got - want:
+        fail(f"{len(extra)} rows are not in the template, e.g. {sorted(extra)[:3]}")
 
-    if len(df) != n:
-        errors.append(f"Expected {n:,} rows for this split; found {len(df):,}.")
+    values = pd.to_numeric(df.yaw_misalignment_deg, errors="coerce")
+    if values.isna().any():
+        fail(f"{int(values.isna().sum())} rows have a non-finite yaw_misalignment_deg")
+    if values.abs().max() > 90:
+        fail(f"values outside +/-90 degrees (max |value| {values.abs().max():.1f})")
 
-    bad_ids = df[~df["session_id"].str.match(rf"^{re.escape(prefix)}\d+$")]
-    if not bad_ids.empty:
-        examples = bad_ids["session_id"].head(3).tolist()
-        errors.append(
-            f"{len(bad_ids)} session_id(s) don't match '{prefix}<N>' format "
-            f"(e.g. {examples})."
-        )
+    # the cluster column is optional, but a partly filled one is almost certainly a mistake
+    note = ""
+    if "cluster" in df.columns:
+        filled = df.cluster.notna().sum()
+        if filled == 0:
+            note = ", no clustering entered"
+        elif filled < len(df):
+            fail(f"cluster is filled on {filled} of {len(df)} rows — "
+                 "fill every row to enter the tie-breaker, or leave the column empty")
+        else:
+            note = f", {df.cluster.nunique()} clusters"
 
-    if df["session_id"].duplicated().any():
-        dups = df["session_id"][df["session_id"].duplicated()].unique()[:3].tolist()
-        errors.append(f"Duplicate session_id(s): {dups}.")
-
-    yaw = pd.to_numeric(df["yaw_misalignment_deg"], errors="coerce")
-    n_bad = int(yaw.isna().sum())
-    if n_bad:
-        errors.append(f"{n_bad} yaw_misalignment_deg value(s) are empty or non-numeric.")
-    if n_bad == 0:
-        non_finite = ~np.isfinite(yaw.to_numpy(dtype=float))
-        if non_finite.any():
-            errors.append(
-                f"{int(non_finite.sum())} yaw_misalignment_deg value(s) are NaN or infinite."
-            )
-
-    return errors
+    print(f"OK: {path.name} — {round_name} round, {len(df):,} rows, "
+          f"{df.turbine_id.nunique()} turbine{note}")
 
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        fail("usage: validate_submission.py <Results_NN_TIER_x.csv>")
-        return 1
-    path = Path(sys.argv[1])
-    if not path.exists():
-        fail(f"File not found: {path}")
-        return 1
-    errors = validate(path)
-    if errors:
-        fail(f"{path.name} is INVALID:")
-        for e in errors:
-            fail(f"  - {e}")
-        return 1
-    print(f"OK: {path.name} is valid.")
-    return 0
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("paths", nargs="+", type=Path)
+    args = ap.parse_args()
+    for path in args.paths:
+        check(path)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

@@ -1,10 +1,19 @@
 # Submissions
 
-Add your results file here via a pull request. See [../docs/SUBMITTING.md](../docs/SUBMITTING.md) for full instructions.
+Add your file here by pull request, named `Results_NN_TIER_x.csv`.
 
-- Filename: `Results_NN_TIER_x.csv` (e.g. `Results_42_U_0.csv`, `Results_42_C5_0.csv`)
-- Header: `session_id,yaw_misalignment_deg`
-- Exactly **857 rows** for the validate split, **813 rows** for the final test split
-- Finite float predictions only — no NaN or empty values
-- Files are tracked with **Git LFS** (see [../.gitattributes](../.gitattributes))
-- Submissions are **immutable** once merged — add a new file to revise
+- Header: `turbine_id,date,yaw_misalignment_deg,cluster`
+- Exactly **731 rows** — every turbine/date pair in the template for your round:
+  `submission_template_validate.csv` for a numbered entry, `submission_template_final.csv` for `_final`
+- `yaw_misalignment_deg`: finite float, within ±90 degrees
+- `cluster`: optional tie-breaker. Fill every row to enter, or leave empty to skip
+- Tracked with Git LFS (see [.gitattributes](../.gitattributes))
+- Immutable once merged — submit a new number to revise
+
+`Results_0_U_0.csv` and `Results_0_U_final.csv` are all-zero examples you can copy.
+
+Check your file before opening the PR:
+
+```bash
+python ../validate_submission.py Results_42_U_0.csv
+```
