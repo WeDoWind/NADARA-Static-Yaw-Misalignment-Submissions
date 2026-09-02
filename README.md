@@ -44,6 +44,11 @@ scoring runs when a maintainer merges.
 (unsupervised), `S` (supervised), or `CK` (Calibrated K reference turbines),
 `x` the submission number or `final` for the private test.
 
+The submission counter is **per tier**, so `Results_42_U_0.csv` and
+`Results_42_S_0.csv` are both valid first submissions. Enter as many tiers as you
+like. The board keeps your best in each, so a supervised entry never hides your
+unsupervised one. `C3` and `C5` are the same calibrated tier.
+
 ```csv
 turbine_id,date,yaw_misalignment_deg,cluster
 PPP_WTG17,2023-01-01,-8.1,0
@@ -104,7 +109,7 @@ provably ahead of it.
 
 **Baselines.** The best single constant scores **RMSE 3.35 on the private test** and
 **4.80 on validate**, and on the test it lands in the same band as the all-zero
-example — the two are not separable. A test result near 3.4 says nothing about whether
+example. The two are not separable. A test result near 3.4 says nothing about whether
 you have a model. Note the two rounds are not comparable: a constant is a strong
 baseline on the test turbine and a weak one on validate.
 

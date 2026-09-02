@@ -180,8 +180,14 @@ function bandBadge(band) {
         title="Statistical band ${n}. Submissions in the same band cannot be separated on RMSE; they are ordered by cluster agreement (ARI).">Band ${n}</span>`;
 }
 
+// U, S, or C: C3 and C5 are the same calibrated tier, differing only in how many
+// reference turbines were used, which the leaderboard reports separately.
+function tierFamily(tier) {
+    return String(tier || '').charAt(0).toUpperCase();
+}
+
 function tierBadge(tier) {
-    const family = String(tier || '').charAt(0);   // tier is U, S, or C followed by a count
+    const family = tierFamily(tier);
     const cls = TIER_COLORS[family] || 'bg-gray-700 text-gray-200';
     const label = TIER_LABELS[family] || tier;
     return `<span class="inline-block ${cls} px-2 py-1 rounded text-xs font-medium">${label}</span>`;
@@ -221,8 +227,11 @@ function medalSize(rank) {
    Filter parsing
 
    Each box accepts a comma-separated list. Numeric entries may also be given
-   as an inclusive range ("23-25"). Matching is exact and case-insensitive, so
-   tier "C" does not also match "C3" — use "C3" if that is what you want.
+   as an inclusive range ("23-25"). Matching is exact and case-insensitive.
+
+   Tier is the exception: "C" is the calibrated tier as a whole and matches C3
+   and C5 as well as a bare C, while "C3" still narrows to that reference count
+   alone.
 --------------------------------------------------------------------------- */
 function parseFilter(raw) {
     const terms = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -256,6 +265,13 @@ function matchesFilter(value, filter) {
     return false;
 }
 
+// Tier matches on the exact string OR on the tier family letter, so "C" covers
+// C3 and C5 while "C3" still singles one out.
+function matchesTier(tier, filter) {
+    if (!filter) return true;
+    return matchesFilter(tier, filter) || matchesFilter(tierFamily(tier), filter);
+}
+
 function activeFilters() {
     return {
         participant: parseFilter(document.getElementById('filterParticipant').value),
@@ -272,20 +288,26 @@ function visibleRows() {
     const f = activeFilters();
     let rows = data[currentSplit].filter(r =>
         matchesFilter(r.participant_id, f.participant) &&
-        matchesFilter(r.tier,           f.tier) &&
+        matchesTier(r.tier,             f.tier) &&
         matchesFilter(r.submission,     f.sub)
     );
 
     if (currentScope === 'best') {
-        const bestByParticipant = new Map();
+        // Best per participant PER TIER, not per participant. The tiers are not
+        // comparable -- an unsupervised method deploys to the whole fleet, a
+        // supervised one is capped by measurement throughput -- so collapsing
+        // them would hide someone's U entry behind their own S entry, which
+        // scores better precisely because it is worth less. C3 and C5 are the
+        // same calibrated tier, keyed on the letter.
+        const bestByEntry = new Map();
         for (const r of rows) {
-            const key  = String(r.participant_id);
-            const prev = bestByParticipant.get(key);
+            const key  = String(r.participant_id) + '|' + tierFamily(r.tier);
+            const prev = bestByEntry.get(key);
             if (!prev || better(r[currentMetric], prev[currentMetric])) {
-                bestByParticipant.set(key, r);
+                bestByEntry.set(key, r);
             }
         }
-        rows = [...bestByParticipant.values()];
+        rows = [...bestByEntry.values()];
     }
 
     // On the RMSE board the scorer's `rank` already encodes band -> ARI -> RMSE.

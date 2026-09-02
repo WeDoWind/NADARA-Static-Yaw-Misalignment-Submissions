@@ -32,7 +32,12 @@ Results_NN_TIER_x.csv
 |---|---|---|
 | `NN` | Your participant ID (from registration) | `42` |
 | `TIER` | Method tier: `U`, `S`, or `CK` (K = reference turbines) | `U`, `S`, `C5` |
-| `x` | Submission number, starting at 0 | `0`, `1`, `2` |
+| `x` | Submission number, starting at 0 — **counted separately per tier** | `0`, `1`, `2` |
+
+The counter runs per tier, so `Results_42_U_0.csv` and `Results_42_S_0.csv` are
+both valid first submissions and do not clash. Enter as many tiers as you like;
+the leaderboard keeps your best entry in each tier rather than making them
+compete with one another. `C3` and `C5` count as the same calibrated tier.
 
 For the final private-test submission use `final` instead of a number:
 `Results_42_U_final.csv`.
