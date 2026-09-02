@@ -199,16 +199,29 @@ function fmt(v, decimals) {
         ? '—' : parseFloat(v).toFixed(decimals);
 }
 
+/* The value a row is RANKED on, which is not always the value shown. A
+   below-chance ARI counts as none at all, the same clip the scorer applies, so
+   attempting the tie-breaker and missing can never cost a place. The card still
+   prints the reported figure with its sign. */
+function rankValue(row, metric) {
+    const v = parseFloat(row[metric]);
+    if (isNaN(v)) return NaN;
+    return metric === 'cluster_ari' ? Math.max(v, 0) : v;
+}
+
 /* Rows with no value for the active metric always sort last, whichever way the
-   metric runs. Entering the tie-breaker is optional, so a blank ARI must not
-   outrank a real one. */
+   metric runs. Ties on the active metric fall through to RMSE, matching how the
+   scorer separates entries sitting at zero inside a band. */
 function compareMetric(a, b) {
-    const x = parseFloat(a), y = parseFloat(b);
+    const x = rankValue(a, currentMetric), y = rankValue(b, currentMetric);
     const xNaN = isNaN(x), yNaN = isNaN(y);
     if (xNaN && yNaN) return 0;
     if (xNaN) return 1;
     if (yNaN) return -1;
-    return LOWER_IS_BETTER[currentMetric] ? x - y : y - x;
+    const d = LOWER_IS_BETTER[currentMetric] ? x - y : y - x;
+    if (d !== 0) return d;
+    const ra = parseFloat(a.rmse), rb = parseFloat(b.rmse);
+    return (isNaN(ra) || isNaN(rb)) ? 0 : ra - rb;
 }
 function better(candidate, incumbent) { return compareMetric(candidate, incumbent) < 0; }
 
@@ -304,7 +317,7 @@ function visibleRows() {
         for (const r of rows) {
             const key  = String(r.participant_id) + '|' + tierFamily(r.tier);
             const prev = bestByEntry.get(key);
-            if (!prev || better(r[currentMetric], prev[currentMetric])) {
+            if (!prev || better(r, prev)) {
                 bestByEntry.set(key, r);
             }
         }
@@ -317,7 +330,7 @@ function visibleRows() {
     if (currentMetric === 'rmse') {
         rows.sort((a, b) => (parseInt(a.rank) || 0) - (parseInt(b.rank) || 0));
     } else {
-        rows.sort((a, b) => compareMetric(a[currentMetric], b[currentMetric]));
+        rows.sort(compareMetric);
     }
     return rows.map((r, i) => ({ ...r, displayRank: i + 1 }));
 }
