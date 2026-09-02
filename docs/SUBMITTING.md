@@ -16,16 +16,7 @@ PPP_WTG17,2023-01-02,-8.0,0
   `submission_template_final.csv` for `_final` (SSS-06)
 - All values must be finite floats, within +/-90 degrees
 - Predictions are asked for every day. Only days with a real label outside a
-  transition window are scored; the rest are ignored, not penalised
-
-`cluster` is the optional tie-breaker column: group days sharing a misalignment
-state. Labels are arbitrary and only need to be consistent within a turbine. Fill
-every row to enter, or leave the column empty to skip.
-
-Skipping it scores ARI 0.00, and for ranking anything below zero counts as zero as
-well. Entering is therefore a free option — it can only help you, never cost you a
-place — and where a band ties at zero the better RMSE wins. Below-chance scores are
-still shown with their sign as feedback.
+  transition window are scored; the rest are ignored, not penalised.
 
 ## 2. Name your file
 
