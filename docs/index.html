@@ -55,7 +55,9 @@
         submissions it cannot separate share a <span class="text-slate-300 font-semibold">Band</span>,
         and inside a band the <span class="text-fuchsia-400 font-semibold">clustering ARI</span>
         sets the order as it measures whether the regimes were identified at all, which is what
-        RMSE is too noisy to judge. A dash means no clustering was entered.
+        RMSE is too noisy to judge. No clustering scores 0.00, and for ranking anything
+        below zero counts as zero — entering can only help you. Negative scores are still
+        shown as feedback. Where a band ties at zero, RMSE decides.
     </div>
 
     <!-- Filters -->

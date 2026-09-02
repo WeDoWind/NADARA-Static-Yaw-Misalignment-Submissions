@@ -74,6 +74,15 @@ telling you how many states there are: working that out is part of it.
 Fill the column on every row to enter, or leave it empty to skip. A partly filled
 column is rejected.
 
+Skipping it scores **ARI 0.00**, and for ranking anything below zero counts as zero
+too. So entering the tie-breaker can only help you: a grouping that lands at or
+below chance leaves you exactly where declining it would have. Where a band ties at
+zero, RMSE decides.
+
+A below-chance score is still **reported** with its sign, because it tells you
+something — ARI ignores what you name your clusters, so a negative value means the
+grouping itself disagrees with the real states, not that the labels are inverted.
+
 If you predict the value well, clustering is trivial: just bin your own
 predictions. It is kept because it is reachable by routes the primary metric is
 not: unsupervised methods that can tell a turbine's states apart without ever
