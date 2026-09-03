@@ -223,27 +223,16 @@ function fmt(v, decimals) {
    below-chance ARI counts as none at all, the same clip the scorer applies, so
    attempting the tie-breaker and missing can never cost a place. The card still
    prints the reported figure with its sign. */
-function rankValue(row, metric) {
-    const v = parseFloat(row[metric]);
-    if (isNaN(v)) return NaN;
-    return metric === 'cluster_ari' ? Math.max(v, 0) : v;
+function scoreRank(row) {
+    const r = parseInt(row.rank);
+    return Number.isFinite(r) ? r : Number.MAX_SAFE_INTEGER;
 }
 
 /* Rows with no value for the active metric always sort last, whichever way the
    metric runs. Ties on the active metric fall through to RMSE, matching how the
    scorer separates entries sitting at zero inside a band. */
-function compareMetric(a, b) {
-    const x = rankValue(a, currentMetric), y = rankValue(b, currentMetric);
-    const xNaN = isNaN(x), yNaN = isNaN(y);
-    if (xNaN && yNaN) return 0;
-    if (xNaN) return 1;
-    if (yNaN) return -1;
-    const d = LOWER_IS_BETTER[currentMetric] ? x - y : y - x;
-    if (d !== 0) return d;
-    const ra = parseFloat(a.rmse), rb = parseFloat(b.rmse);
-    return (isNaN(ra) || isNaN(rb)) ? 0 : ra - rb;
-}
-function better(candidate, incumbent) { return compareMetric(candidate, incumbent) < 0; }
+function compareMetric(a, b) { return scoreRank(a) - scoreRank(b); }
+function better(candidate, incumbent) { return scoreRank(candidate) < scoreRank(incumbent); }
 
 function cardBg(rank) {
     return rank <= 3
@@ -334,6 +323,8 @@ function visibleRows() {
         // them would hide someone's U entry behind their own S entry, which
         // scores better precisely because it is worth less. Every TK is its own
         // tier, so T3 and T4 are kept apart.
+        // "Best" is the highest-ranked entry under the official criteria, not the
+        // one with the smallest number on the tab you happen to be looking at.
         const bestByEntry = new Map();
         for (const r of rows) {
             const key  = String(r.participant_id) + '|' + tierKey(r.tier);
@@ -345,14 +336,10 @@ function visibleRows() {
         rows = [...bestByEntry.values()];
     }
 
-    // On the RMSE board the scorer's `rank` already encodes band -> ARI -> RMSE.
-    // Re-sorting on raw RMSE here would undo the tie-breaking inside a band, so
-    // the stored rank is used instead. Secondary boards sort on their own metric.
-    if (currentMetric === 'rmse') {
-        rows.sort((a, b) => (parseInt(a.rank) || 0) - (parseInt(b.rank) || 0));
-    } else {
-        rows.sort(compareMetric);
-    }
+    // The order is always the scorer's `rank` (band -> ARI -> RMSE) whichever tab
+    // is open. The tabs choose which number is shown large, not who is ahead --
+    // re-sorting per tab would publish three different, contradictory standings.
+    rows.sort(compareMetric);
     return rows.map((r, i) => ({ ...r, displayRank: i + 1 }));
 }
 
@@ -403,8 +390,15 @@ function renderBoard(rows) {
 
 function renderStats(rows) {
     const participants = new Set(rows.map(r => r.participant_id)).size;
-    const other = COMPANION[currentMetric];
-    const best = rows.length ? rows[0] : null;
+    const leader = rows.length ? rows[0] : null;
+
+    // The leader is not always the best raw number: inside a band the clustering
+    // ARI sets the order, so rank 1 can carry a higher RMSE than someone below it.
+    // Both are shown, and the gap between them is itself worth seeing.
+    const vals = rows.map(r => parseFloat(r[currentMetric])).filter(v => !isNaN(v));
+    const bestVal = vals.length
+        ? (LOWER_IS_BETTER[currentMetric] ? Math.min(...vals) : Math.max(...vals))
+        : null;
 
     document.getElementById('stats').innerHTML = `
         <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
@@ -416,12 +410,12 @@ function renderStats(rows) {
             <div class="text-gray-300 mt-2">Participants</div>
         </div>
         <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold ${METRIC_COLORS[currentMetric]}">${best ? fmt(best[currentMetric], METRIC_DECIMALS[currentMetric]) : '—'}</div>
+            <div class="text-3xl font-bold ${METRIC_COLORS[currentMetric]}">${bestVal === null ? '—' : fmt(bestVal, METRIC_DECIMALS[currentMetric])}</div>
             <div class="text-gray-300 mt-2">Best ${METRIC_LABELS[currentMetric]}</div>
         </div>
         <div class="bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div class="text-3xl font-bold text-gray-400">${best ? fmt(best[other], METRIC_DECIMALS[other]) : '—'}</div>
-            <div class="text-gray-300 mt-2">${METRIC_LABELS[other]} of leader</div>
+            <div class="text-3xl font-bold text-gray-400">${leader ? fmt(leader[currentMetric], METRIC_DECIMALS[currentMetric]) : '—'}</div>
+            <div class="text-gray-300 mt-2">Leader's ${METRIC_LABELS[currentMetric]}</div>
         </div>`;
 }
 
