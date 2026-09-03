@@ -40,14 +40,22 @@ since the last update", not "missing". Forward fill it.
 By pull request, adding files under `Submissions/`. Format is checked immediately;
 scoring runs when a maintainer merges.
 
-**`Results_NN_TIER_x.csv`**  where `NN` your participant ID, `TIER` one of `U` 
-(unsupervised), `S` (supervised), or `CK` (Calibrated K reference turbines),
-`x` the submission number or `final` for the private test.
+**`Results_NN_TIER_x.csv`**  where `NN` your participant ID, `TIER` is in format `TK`,
+where `K` is the number of wind turbines with labels that was used to create your model.
+`x` is the submission number or `final` for the private test.
 
-The submission counter is **per tier**, so `Results_42_U_0.csv` and
-`Results_42_S_0.csv` are both valid first submissions. Enter as many tiers as you
+Possible tiers are: `T0`, `T1`, `T2`, `T3`, and `T4`
+`T0` means no labels are used: unsupervised/physics based model, `C3` means all 3 turbines 
+from the train dataset where used. Lastly `C4` means some data from validation/test wind
+turbine was used. The last C4 specifically tests generalisation capabilities of the model.
+Due to practical implications of implementing the detection methods in the field we will 
+cap validate and test dataset labels availability to 14 days. 
+Also `C4` tier will be penalised when choosing the final winner. 
+
+The submission counter is **per tier**, so `Results_42_T0_0.csv` and
+`Results_42_T3_0.csv` are both valid first submissions. Enter as many tiers as you
 like. The board keeps your best in each, so a supervised entry never hides your
-unsupervised one. `C3` and `C5` are the same calibrated tier.
+unsupervised one.
 
 ```csv
 turbine_id,date,yaw_misalignment_deg,cluster
