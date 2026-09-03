@@ -1,6 +1,6 @@
 """Format check for submissions. Runs on every PR; needs no labels.
 
-    python validate_submission.py Submissions/Results_42_U_0.csv
+    python validate_submission.py Submissions/Results_42_T0_0.csv
 """
 
 from __future__ import annotations
@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pandas as pd
 
-RESULTS = re.compile(r"^Results_(\d+)_(U|S|C\d+)_(\d+|final)\.csv$")
+# TIER is TK: K = how many labelled turbines the method needed. T0 none,
+# T3 all three train turbines, T4 also the scored turbine.
+RESULTS = re.compile(r"^Results_(\d+)_(T[0-4])_(\d+|final)\.csv$")
 TEMPLATES = Path(__file__).parent
 REQUIRED = ["turbine_id", "date", "yaw_misalignment_deg"]
 
@@ -26,7 +28,8 @@ def check(path: Path) -> None:
     match = RESULTS.match(path.name)
     if match is None:
         fail(f"{path.name} does not match Results_NN_TIER_x.csv "
-             "(TIER is U, S, or C followed by the number of reference turbines)")
+             "(TIER is T0-T4: T followed by how many labelled turbines your "
+             "method needed)")
 
     # a numbered entry is scored on the public validation turbine, "final" on the
     # held-out one -- each round has its own template, so neither carries the other's rows

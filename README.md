@@ -40,23 +40,35 @@ since the last update", not "missing". Forward fill it.
 By pull request, adding files under `Submissions/`. Format is checked immediately;
 scoring runs when a maintainer merges.
 
-**`Results_NN_TIER_x.csv`**  where `NN` your participant ID, `TIER` is in format `TK`,
-where `K` is the number of wind turbines with labels that was used to create your model.
-`x` is the submission number or `final` for the private test.
+**`Results_NN_TIER_x.csv`** where `NN` is your participant ID, `TIER` has the form
+`TK` — `K` being how many labelled wind turbines your method needed — and `x` is the
+submission number, or `final` for the private test.
 
-Possible tiers are: `T0`, `T1`, `T2`, `T3`, and `T4`
+| Tier | Labelled turbines used | What it claims |
+|---|---|---|
+| `T0` | none | Unsupervised or physics-based: works with no labels anywhere |
+| `T1` | one of PPP-12 / 13 / 14 | |
+| `T2` | two of PPP-12 / 13 / 14 | |
+| `T3` | all three train turbines | Transfers to a turbine it has never seen labelled |
+| `T4` | the train turbines **plus** labels from the scored turbine itself | Few-shot calibration on the turbine being scored |
 
-`T0` means no labels are used: unsupervised/physics based model, `C3` means all 3 turbines 
-from the train dataset where used. Lastly, `C4` means some data from validation/test wind
-turbine was used. The last C4 specifically tests generalisation capabilities of the model.
-Due to practical implications of implementing the detection methods in the field we will 
-cap validate and test dataset labels availability to 14 days. 
-Also `C4` tier will be penalised when choosing the final winner. 
+The tiers are ordered by how much field measurement the method needs before it can be
+trusted on a new turbine. `T0` is the strongest claim — no campaign anywhere, so it
+rolls out across a fleet immediately. `T4` is the weakest, because it needs a campaign
+on **every** turbine you want to assess, which is the throughput problem this challenge
+exists to solve. `T4` is therefore **penalised when choosing the final winner**.
+
+Note this runs the opposite way to generalisation: `T0` is the hardest test of it and
+`T4` the softest, since `T4` has already seen the answer on the turbine it is scored on.
+
+Labels from the scored turbine (PPP-17 in the numbered rounds, SSS-06 in the final)
+will be capped at **14 days**, roughly what one measurement campaign occupies. How
+those days are released has not been settled yet — this section will be updated before
+any of them are available, and until then no `T4` submission can be made.
 
 The submission counter is **per tier**, so `Results_42_T0_0.csv` and
 `Results_42_T3_0.csv` are both valid first submissions. Enter as many tiers as you
-like. The board keeps your best in each, so a supervised entry never hides your
-unsupervised one.
+like — the board keeps your best in each, so a `T3` entry never hides your `T0` one.
 
 ```csv
 turbine_id,date,yaw_misalignment_deg,cluster
@@ -99,7 +111,7 @@ calibrating them to degrees, and physics-based approaches that detect a change i
 behaviour without pinning down its magnitude. Those are worth rewarding even when
 the absolute number is out of reach.
 
-`Submissions/Results_0_U_0.csv` and `Results_0_U_final.csv` are all-zero examples you
+`Submissions/Results_0_T0_0.csv` and `Results_0_T0_final.csv` are all-zero examples you
 can copy, one per round.
 
 Submissions are immutable once merged; submit a new number to revise.
@@ -161,5 +173,5 @@ because you need them to find the SCADA. **This is an honour-system rule.**
 ## Checking your file locally
 
 ```bash
-python validate_submission.py Submissions/Results_42_U_0.csv
+python validate_submission.py Submissions/Results_42_T0_0.csv
 ```

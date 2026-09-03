@@ -74,7 +74,7 @@
                 <label for="filterTier" class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
                     Tier
                 </label>
-                <input type="text" id="filterTier" placeholder="U, C, S"
+                <input type="text" id="filterTier" placeholder="e.g. T0, T3 or 0,3"
                     class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-500"/>
             </div>
             <div>
@@ -151,11 +151,29 @@ let currentMetric = 'rmse';   // 'rmse' | 'mae'
 let currentSplit  = 'validate';
 let currentScope  = 'best';   // 'best' | 'all'
 
-const TIER_LABELS = { U: 'Unsupervised', C: 'Calibrated', S: 'Supervised' };
+// TK: K is how many labelled turbines the method needed. The colours run from
+// green to amber with K, because K is the cost of deploying the method on a new
+// turbine -- T0 needs no field campaign at all, T4 needs one on every turbine.
+const TIER_LABELS = {
+    T0: 'T0 · no labels',
+    T1: 'T1 · 1 turbine',
+    T2: 'T2 · 2 turbines',
+    T3: 'T3 · 3 turbines',
+    T4: 'T4 · target labels',
+};
 const TIER_COLORS = {
-    U: 'bg-emerald-900 text-emerald-200',
-    C: 'bg-blue-900 text-blue-200',
-    S: 'bg-purple-900 text-purple-200',
+    T0: 'bg-emerald-900 text-emerald-200',
+    T1: 'bg-teal-900 text-teal-200',
+    T2: 'bg-sky-900 text-sky-200',
+    T3: 'bg-indigo-900 text-indigo-200',
+    T4: 'bg-amber-900 text-amber-200',
+};
+const TIER_TITLES = {
+    T0: 'No labels used anywhere — unsupervised or physics-based.',
+    T1: 'Labels from one train turbine.',
+    T2: 'Labels from two train turbines.',
+    T3: 'Labels from all three train turbines.',
+    T4: 'Also used labels from the scored turbine. Penalised when choosing the final winner.',
 };
 
 const METRIC_LABELS = { rmse: 'RMSE (°)', mae: 'MAE (°)', cluster_ari: 'Cluster ARI' };
@@ -181,17 +199,19 @@ function bandBadge(band) {
         title="Statistical band ${n}. Submissions in the same band cannot be separated on RMSE; they are ordered by cluster agreement (ARI).">Band ${n}</span>`;
 }
 
-// U, S, or C: C3 and C5 are the same calibrated tier, differing only in how many
-// reference turbines were used, which the leaderboard reports separately.
-function tierFamily(tier) {
-    return String(tier || '').charAt(0).toUpperCase();
+// Each K is its own tier: T3 and T4 are different claims about what the method
+// needs, so unlike the old C3/C5 they must not be folded together anywhere.
+function tierKey(tier) {
+    return String(tier || '').toUpperCase();
 }
 
 function tierBadge(tier) {
-    const family = tierFamily(tier);
-    const cls = TIER_COLORS[family] || 'bg-gray-700 text-gray-200';
-    const label = TIER_LABELS[family] || tier;
-    return `<span class="inline-block ${cls} px-2 py-1 rounded text-xs font-medium">${label}</span>`;
+    const key = tierKey(tier);
+    const cls = TIER_COLORS[key] || 'bg-gray-700 text-gray-200';
+    const label = TIER_LABELS[key] || tier;
+    const title = TIER_TITLES[key] || '';
+    return `<span class="inline-block ${cls} px-2 py-1 rounded text-xs font-medium"
+        title="${title}">${label}</span>`;
 }
 
 function fmt(v, decimals) {
@@ -243,9 +263,8 @@ function medalSize(rank) {
    Each box accepts a comma-separated list. Numeric entries may also be given
    as an inclusive range ("23-25"). Matching is exact and case-insensitive.
 
-   Tier is the exception: "C" is the calibrated tier as a whole and matches C3
-   and C5 as well as a bare C, while "C3" still narrows to that reference count
-   alone.
+   Tier accepts the digit alone as well as the full code, so "0" and "T0" both
+   work, and "0,3" narrows to those two tiers.
 --------------------------------------------------------------------------- */
 function parseFilter(raw) {
     const terms = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -279,11 +298,13 @@ function matchesFilter(value, filter) {
     return false;
 }
 
-// Tier matches on the exact string OR on the tier family letter, so "C" covers
-// C3 and C5 while "C3" still singles one out.
+// Tier matches the full code or the digit alone, so "T3" and "3" both select T3.
 function matchesTier(tier, filter) {
     if (!filter) return true;
-    return matchesFilter(tier, filter) || matchesFilter(tierFamily(tier), filter);
+    const key = tierKey(tier);
+    // "T3" or bare "3" both select tier T3. Tiers are never merged: T3 and T4 are
+    // different claims, so there is no family match here as there was for C3/C5.
+    return matchesFilter(key, filter) || matchesFilter(key.replace(/^T/, ''), filter);
 }
 
 function activeFilters() {
@@ -311,11 +332,11 @@ function visibleRows() {
         // comparable -- an unsupervised method deploys to the whole fleet, a
         // supervised one is capped by measurement throughput -- so collapsing
         // them would hide someone's U entry behind their own S entry, which
-        // scores better precisely because it is worth less. C3 and C5 are the
-        // same calibrated tier, keyed on the letter.
+        // scores better precisely because it is worth less. Every TK is its own
+        // tier, so T3 and T4 are kept apart.
         const bestByEntry = new Map();
         for (const r of rows) {
-            const key  = String(r.participant_id) + '|' + tierFamily(r.tier);
+            const key  = String(r.participant_id) + '|' + tierKey(r.tier);
             const prev = bestByEntry.get(key);
             if (!prev || better(r, prev)) {
                 bestByEntry.set(key, r);
@@ -361,7 +382,6 @@ function renderBoard(rows) {
               <div class="mt-1 flex flex-wrap gap-2">
                 ${tierBadge(row.tier)}
                 <span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">Sub #${row.submission}</span>
-                ${/^C\d+$/.test(row.tier) ? `<span class="inline-block bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">${row.tier.slice(1)} ref turbines</span>` : ''}
                 ${bandBadge(row.band)}
               </div>
             </div>
