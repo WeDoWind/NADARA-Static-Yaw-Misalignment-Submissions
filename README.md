@@ -41,7 +41,7 @@ By pull request, adding files under `Submissions/`. Format is checked immediatel
 scoring runs when a maintainer merges.
 
 **`Results_NN_TIER_x.csv`** where `NN` is your participant ID, `TIER` has the form
-`TK` — `K` being how many labelled wind turbines your method needed — and `x` is the
+`TK` (`K` being how many labelled wind turbines your method needed) and `x` is the
 submission number, or `final` for the private test.
 
 | Tier | Labelled turbines used | What it claims |
@@ -68,7 +68,7 @@ any of them are available, and until then no `T4` submission can be made.
 
 The submission counter is **per tier**, so `Results_42_T0_0.csv` and
 `Results_42_T3_0.csv` are both valid first submissions. Enter as many tiers as you
-like — the board keeps your best in each, so a `T3` entry never hides your `T0` one.
+like. The board keeps your best in each, so a `T3` entry never hides your `T0` one.
 
 ```csv
 turbine_id,date,yaw_misalignment_deg,cluster
