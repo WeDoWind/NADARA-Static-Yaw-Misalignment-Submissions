@@ -1,1 +1,2 @@
-
+rank,band,participant_id,tier,submission,rmse,mae,bias,cluster_ari,gap_vs_lead,n_days,filename
+1,1,0,T0,final,4.987,3.692,3.692,0.0,,185,Results_0_T0_final.csv
