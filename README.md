@@ -45,8 +45,9 @@ where `K` is the number of wind turbines with labels that was used to create you
 `x` is the submission number or `final` for the private test.
 
 Possible tiers are: `T0`, `T1`, `T2`, `T3`, and `T4`
+
 `T0` means no labels are used: unsupervised/physics based model, `C3` means all 3 turbines 
-from the train dataset where used. Lastly `C4` means some data from validation/test wind
+from the train dataset where used. Lastly, `C4` means some data from validation/test wind
 turbine was used. The last C4 specifically tests generalisation capabilities of the model.
 Due to practical implications of implementing the detection methods in the field we will 
 cap validate and test dataset labels availability to 14 days. 
