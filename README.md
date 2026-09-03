@@ -53,7 +53,7 @@ submission number, or `final` for the private test.
 | `T4` | the train turbines **plus** labels from the scored turbine itself | Few-shot calibration on the turbine being scored |
 
 The tiers are ordered by how much field measurement the method needs before it can be
-trusted on a new turbine. `T0` is the strongest claim — no campaign anywhere, so it
+trusted on a new turbine. `T0` is the strongest claim: no campaign anywhere, so it
 rolls out across a fleet immediately. `T4` is the weakest, because it needs a campaign
 on **every** turbine you want to assess, which is the throughput problem this challenge
 exists to solve. `T4` is therefore **penalised when choosing the final winner**.
@@ -63,7 +63,7 @@ Note this runs the opposite way to generalisation: `T0` is the hardest test of i
 
 Labels from the scored turbine (PPP-17 in the numbered rounds, SSS-06 in the final)
 will be capped at **14 days**, roughly what one measurement campaign occupies. How
-those days are released has not been settled yet — this section will be updated before
+those days are released has not been settled yet. This section will be updated before
 any of them are available, and until then no `T4` submission can be made.
 
 The submission counter is **per tier**, so `Results_42_T0_0.csv` and
