@@ -154,9 +154,6 @@ because you need them to find the SCADA. **This is an honour-system rule.**
   speed and pitch each carry an undisclosed constant factor, the same for every
   turbine. Relationships survive; absolute values and anything derived from them
   (power coefficient, tip-speed ratio) do not. Directions are unscaled.
-- **Anemometer calibrations get changed.** This can put a step in a turbine's
-  wind-speed-to-power relationship that has nothing to do with yaw. At least one
-  turbine here has one.
 - **Turbines might genuinely see different wind.** Complex terrain, varying hub heights;
   persistent 10–15% offsets between turbines might be real.
 - **Labels are smoothed.** The daily series behaves like a rolling estimate and
