@@ -32,7 +32,7 @@ jobs:
           fi
           echo "Changed files:"; cat changes.txt
           added=$(awk '$1=="A" {print $2}' changes.txt \
-            | grep -E '^Submissions/Results_[0-9]+_(U|S|C[0-9]+)_([0-9]+|final)\.csv$' || true)
+            | grep -E '^Submissions/Results_[0-9]+_T[0-4]_([0-9]+|final)\.csv$' || true)
           {
             echo "added<<EOF"
             echo "$added"
