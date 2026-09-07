@@ -52,9 +52,9 @@ jobs:
           fi
 
           added=$(awk '$1=="A" {print $2}' changes.txt \
-            | grep -E '^Submissions/Results_[0-9]+_(U|S|C[0-9]+)_([0-9]+|final)\.csv$' || true)
+            | grep -E '^Submissions/Results_[0-9]+_T[0-4]_([0-9]+|final)\.csv$' || true)
           if [ -z "$added" ]; then
-            echo "::error::No new file matching Submissions/Results_NN_(U|S|CK)_(NUM|final).csv was found in this PR."
+            echo "::error::No new file matching Submissions/Results_NN_TIER_(NUM|final).csv was found in this PR (TIER is T0-T4)."
             exit 1
           fi
           {
