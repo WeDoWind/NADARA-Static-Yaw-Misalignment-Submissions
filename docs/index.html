@@ -380,7 +380,9 @@ function renderBoard(rows) {
     // fit the same row the two-metric tabs use for two.
     const companions = COMPANION[currentMetric] || [];
     const blockSize = companions.length > 1 ? 'text-2xl' : 'text-3xl';
-    const otherBlock = (key) => `
+    // `row` is passed in explicitly: this helper is built once per render, outside
+    // the per-row map below, so it cannot close over the row being drawn.
+    const otherBlock = (row, key) => `
               <div title="${METRIC_TITLES[key] || ''}">
                 <div class="${blockSize} font-mono font-bold text-gray-400">${fmt(row[key], METRIC_DECIMALS[key])}</div>
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[key]}</div>
@@ -406,7 +408,7 @@ function renderBoard(rows) {
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[currentMetric]}</div>
                 ${currentMetric === 'rmse' && row.gap_vs_lead ? `<div class="text-xs text-gray-500 mt-1 normal-case" title="Paired bootstrap over misalignment regimes: the RMSE margin needed to be provably better than this band's leader.">needs ${fmt(row.gap_vs_lead, 2)} to beat band lead</div>` : ''}
               </div>
-              ${companions.map(otherBlock).join('')}
+              ${companions.map(key => otherBlock(row, key)).join('')}
             </div>
           </div>
         </div>`;
