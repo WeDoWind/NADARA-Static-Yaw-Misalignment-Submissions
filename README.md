@@ -146,7 +146,7 @@ baseline on the test turbine and a weak one on validate.
 For clustering, the real states are contiguous in time, so cutting the calendar
 into a few blocks scores ARI 0.53 / 0.65 with no SCADA read at all. **Do not use
 calendar adjacency between scored days.** Rows ship shuffled, but dates are kept
-because you need them to find the SCADA. **This is an honour-system rule.**
+because you need them to find the SCADA. **This is an honour-system rule for clustering performed directly on SCADA and not on inferred yaw missalignmnet.**
 
 ## Things worth knowing about this data
 

@@ -39,7 +39,7 @@
         </button>
         <button id="tab-mae" onclick="showTab('mae')"
             class="px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-t hover:text-white">
-            Model Performance (MAE)
+            Error Breakdown (MAE / Shape / Bias)
         </button>
         <button id="tab-cluster_ari" onclick="showTab('cluster_ari')"
             class="px-6 py-3 text-gray-400 font-semibold border-b-2 border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-t hover:text-white">
@@ -57,6 +57,10 @@
         sets the order as it measures whether the regimes were identified at all, which is what
         RMSE is too noisy to judge. No clustering scores 0.00, and for ranking anything
         below zero counts as zero. Negative scores are still shown as feedback. Where a band ties at zero, RMSE decides.
+        The <span class="text-gray-200 font-semibold">Error Breakdown</span> tab is informational only --
+        <span class="text-lime-400 font-semibold">Bias</span> (mean signed error) and
+        <span class="text-purple-400 font-semibold">Shape</span> (day-to-day scatter once that offset is
+        removed) split RMSE exactly, RMSE² = Bias² + Shape², but neither changes rank.
     </div>
 
     <!-- Filters -->
@@ -176,18 +180,32 @@ const TIER_TITLES = {
     T4: 'Also used labels from the scored turbine. Penalised when choosing the final winner.',
 };
 
-const METRIC_LABELS = { rmse: 'RMSE (°)', mae: 'MAE (°)', cluster_ari: 'Cluster ARI' };
+const METRIC_LABELS = { rmse: 'RMSE (°)', mae: 'MAE (°)', shape: 'Shape (°)',
+                        bias: 'Bias (°)', cluster_ari: 'Cluster ARI' };
 // Two decimals, not four. The smallest RMSE difference the paired bootstrap can
 // call real is around 0.02, so a third decimal is noise dressed up as precision.
 // Two entries inside one band may print the same figure -- that is the point:
 // they are tied on RMSE and the cluster ARI is what separates them.
-const METRIC_DECIMALS = { rmse: 2, mae: 2, cluster_ari: 2 };
-const METRIC_COLORS = { rmse: 'text-orange-400', mae: 'text-cyan-400',
-                        cluster_ari: 'text-fuchsia-400' };
-// RMSE and MAE are better when small, ARI when large
-const LOWER_IS_BETTER = { rmse: true, mae: true, cluster_ari: false };
-// the metric shown beside the active one
-const COMPANION = { rmse: 'mae', mae: 'rmse', cluster_ari: 'rmse' };
+const METRIC_DECIMALS = { rmse: 2, mae: 2, shape: 2, bias: 2, cluster_ari: 2 };
+const METRIC_COLORS = { rmse: 'text-orange-400', mae: 'text-cyan-400', shape: 'text-purple-400',
+                        bias: 'text-lime-400', cluster_ari: 'text-fuchsia-400' };
+// Tooltip text for each metric's block on the card.
+const METRIC_TITLES = {
+    rmse: 'Root mean squared error over turbine-days. Primary ranking metric.',
+    mae: 'Mean absolute error over turbine-days.',
+    shape: "Standard deviation of the day-to-day error with the mean offset (bias) removed. RMSE² = Bias² + Shape². Informational, not ranked.",
+    bias: 'Mean signed error. Positive means predictions run high, negative means low. Informational, not ranked.',
+    cluster_ari: 'Adjusted Rand Index of the submitted misalignment-regime clustering against ground truth. Tie-breaker within a band.',
+};
+// RMSE and MAE are better when small, ARI when large. Bias has no "smaller is
+// better" direction -- closer to zero is better either side -- so it is left
+// out of LOWER_IS_BETTER and never drives the stats-bar best/leader figures.
+const LOWER_IS_BETTER = { rmse: true, mae: true, shape: true, cluster_ari: false };
+// The metric(s) shown beside the active one on each tab's card. The Error
+// Breakdown tab (mae) shows three figures at once -- MAE plus the RMSE = Bias +
+// Shape split -- instead of one companion, since none of the three on its own
+// tells the whole story.
+const COMPANION = { rmse: ['mae'], mae: ['shape', 'bias'], cluster_ari: ['rmse'] };
 
 // Submissions sharing a band are statistically tied on RMSE -- the scored days
 // come from too few misalignment regimes to separate them -- so within a band
@@ -357,7 +375,17 @@ function renderBoard(rows) {
         return '<div class="bg-gray-800 rounded-lg p-8 text-center text-gray-400">No submissions match these filters.</div>';
     }
 
-    const other = COMPANION[currentMetric];
+    // Primary metric first, then its companion(s). More than one companion (the
+    // Error Breakdown tab) prints each figure a size smaller so three numbers
+    // fit the same row the two-metric tabs use for two.
+    const companions = COMPANION[currentMetric] || [];
+    const blockSize = companions.length > 1 ? 'text-2xl' : 'text-3xl';
+    const otherBlock = (key) => `
+              <div title="${METRIC_TITLES[key] || ''}">
+                <div class="${blockSize} font-mono font-bold text-gray-400">${fmt(row[key], METRIC_DECIMALS[key])}</div>
+                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[key]}</div>
+              </div>`;
+
     return rows.map((row, i) => {
         const rank = row.displayRank;
         return `
@@ -372,16 +400,13 @@ function renderBoard(rows) {
                 ${bandBadge(row.band)}
               </div>
             </div>
-            <div class="flex items-center gap-8 text-right">
-              <div>
-                <div class="text-3xl font-mono font-bold ${rank <= 3 ? METRIC_COLORS[currentMetric] : 'text-gray-300'}">${fmt(row[currentMetric], METRIC_DECIMALS[currentMetric])}</div>
+            <div class="flex items-center gap-6 md:gap-8 text-right">
+              <div title="${METRIC_TITLES[currentMetric] || ''}">
+                <div class="${blockSize} font-mono font-bold ${rank <= 3 ? METRIC_COLORS[currentMetric] : 'text-gray-300'}">${fmt(row[currentMetric], METRIC_DECIMALS[currentMetric])}</div>
                 <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[currentMetric]}</div>
                 ${currentMetric === 'rmse' && row.gap_vs_lead ? `<div class="text-xs text-gray-500 mt-1 normal-case" title="Paired bootstrap over misalignment regimes: the RMSE margin needed to be provably better than this band's leader.">needs ${fmt(row.gap_vs_lead, 2)} to beat band lead</div>` : ''}
               </div>
-              <div>
-                <div class="text-3xl font-mono font-bold text-gray-400">${fmt(row[other], METRIC_DECIMALS[other])}</div>
-                <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">${METRIC_LABELS[other]}</div>
-              </div>
+              ${companions.map(otherBlock).join('')}
             </div>
           </div>
         </div>`;
