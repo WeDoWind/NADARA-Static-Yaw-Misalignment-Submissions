@@ -1,6 +1,6 @@
 # NADARA Static Yaw Misalignment Challenge — Submissions
 
-Leaderboard repository. Predict the daily WindFit yaw misalignment value for a
+Leaderboard repository. Predict the daily yaw misalignment value for a
 turbine from its SCADA.
 
 Live leaderboard: **https://wedowind.github.io/NADARA-Static-Yaw-Misalignment-Submissions/**
@@ -13,7 +13,7 @@ sidecar.
 
 | File | Turbines | Labels |
 |---|---|---|
-| `train.parquet` | PPP-12, PPP-13, PPP-14 | yes, where WindFit measured |
+| `train.parquet` | PPP-12, PPP-13, PPP-14 | yes, when measured |
 | `validate.parquet` | PPP-17 | no, public leaderboard |
 | `test.parquet` | SSS-06 | no, final round, scored once at the deadline |
 | `context.parquet` | 11 others | no |
@@ -50,21 +50,18 @@ submission number, or `final` for the private test.
 | `T1` | one of PPP-12 / 13 / 14 | |
 | `T2` | two of PPP-12 / 13 / 14 | |
 | `T3` | all three train turbines | Transfers to a turbine it has never seen labelled |
-| `T4` | the train turbines **plus** labels from the scored turbine itself | Few-shot calibration on the turbine being scored |
+| `T4` | the train turbines **plus** labels from the scored turbine itself | Few-shot calibration on the turbine being scored. |
 
 The tiers are ordered by how much field measurement the method needs before it can be
 trusted on a new turbine. `T0` is the strongest claim: no campaign anywhere, so it
 rolls out across a fleet immediately. `T4` is the weakest, because it needs a campaign
 on **every** turbine you want to assess, which is the throughput problem this challenge
-exists to solve. `T4` is therefore **penalised when choosing the final winner**.
+exists to solve. `T4` submission therefore is **not an available option** during the offical challange run.
 
 Note this runs the opposite way to generalisation: `T0` is the hardest test of it and
 `T4` the softest, since `T4` has already seen the answer on the turbine it is scored on.
+Moreover, since the train dataset has no labeled wind trubines from the SSS wind farm. This means that a `T1` to `T3` submissions to the `final` round claim generalisation **across the wind farms**. If your supevised methods rely on genaralisation only within the wind farm, the only possible submission to the `final` round in this case is `T0`.
 
-Labels from the scored turbine (PPP-17 in the numbered rounds, SSS-06 in the final)
-will be capped at **14 days**, roughly what one measurement campaign occupies. How
-those days are released has not been settled yet. This section will be updated before
-any of them are available, and until then no `T4` submission can be made.
 
 The submission counter is **per tier**, so `Results_42_T0_0.csv` and
 `Results_42_T3_0.csv` are both valid first submissions. Enter as many tiers as you
@@ -114,12 +111,12 @@ the absolute number is out of reach.
 `Submissions/Results_0_T0_0.csv` and `Results_0_T0_final.csv` are all-zero examples you
 can copy, one per round.
 
-Submissions are immutable once merged; submit a new number to revise.
+Submissions are immutable once merged; submit a new number to revise. The only exception is for submissions that by the end of the challenge took the lead on the leaderboard, but you the reported result is due to some error in the code, which improved the score by pure coincidence.
 
 ## Scoring
 
-Ranked on **RMSE**, MAE alongside. Clustering breaks ties, scored per turbine with
-the Adjusted Rand Index.
+Ranked on **RMSE**. Clustering breaks ties, scored per turbine with
+the Adjusted Rand Index. We also reporte MAE, Shape and Bias error, which does not affect the ranking. 
 
 The tie-breaker is not decorative. Scored days are heavily autocorrelated: a run of
 days at one misalignment level is effectively a single observation, so the effective
@@ -156,8 +153,6 @@ because you need them to find the SCADA. **This is an honour-system rule for clu
   (power coefficient, tip-speed ratio) do not. Directions are unscaled.
 - **Turbines might genuinely see different wind.** Complex terrain, varying hub heights;
   persistent 10–15% offsets between turbines might be real.
-- **Labels are smoothed.** The daily series behaves like a rolling estimate and
-  drifts for about a week before each visible step. Those days are not scored.
 - **The obvious method does not work out of the box.** An OpenOA-style
   power-versus-vane fit tracks a change *within* a turbine well, but ranks the
   three training turbines in the wrong order.
