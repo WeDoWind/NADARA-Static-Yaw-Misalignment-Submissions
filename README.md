@@ -56,11 +56,11 @@ The tiers are ordered by how much field measurement the method needs before it c
 trusted on a new turbine. `T0` is the strongest claim: no campaign anywhere, so it
 rolls out across a fleet immediately. `T4` is the weakest, because it needs a campaign
 on **every** turbine you want to assess, which is the throughput problem this challenge
-exists to solve. `T4` submission therefore is **not an available option** during the offical challange run.
+exists to solve. `T4` submission therefore is **not an available option** during the official challenge run.
 
 Note this runs the opposite way to generalisation: `T0` is the hardest test of it and
 `T4` the softest, since `T4` has already seen the answer on the turbine it is scored on.
-Moreover, since the train dataset has no labeled wind trubines from the SSS wind farm. This means that a `T1` to `T3` submissions to the `final` round claim generalisation **across the wind farms**. If your supevised methods rely on genaralisation only within the wind farm, the only possible submission to the `final` round in this case is `T0`.
+Moreover, since the train dataset has no labelled wind turbines from the SSS wind farm. This means that a `T1` to `T3` submissions to the `final` round claim generalisation **across the wind farms**. If your supervised methods rely on generalisation only within the wind farm, the only possible submission to the `final` round in this case is `T0`.
 
 
 The submission counter is **per tier**, so `Results_42_T0_0.csv` and
@@ -111,12 +111,14 @@ the absolute number is out of reach.
 `Submissions/Results_0_T0_0.csv` and `Results_0_T0_final.csv` are all-zero examples you
 can copy, one per round.
 
-Submissions are immutable once merged; submit a new number to revise. The only exception is for submissions that by the end of the challenge took the lead on the leaderboard, but you the reported result is due to some error in the code, which improved the score by pure coincidence.
+Submissions are immutable once merged; submit a new number to revise. The only exception
+is for submissions that by the end of the challenge took the lead on the leaderboard,
+but the reported result is due to some error in the code, which improved the score by pure coincidence.
 
 ## Scoring
 
 Ranked on **RMSE**. Clustering breaks ties, scored per turbine with
-the Adjusted Rand Index. We also reporte MAE, Shape and Bias error, which does not affect the ranking. 
+the Adjusted Rand Index. We also report MAE, Shape and Bias error, which does not affect the ranking. 
 
 The tie-breaker is not decorative. Scored days are heavily autocorrelated: a run of
 days at one misalignment level is effectively a single observation, so the effective
